@@ -26,8 +26,7 @@ import (
 	"sync"
 
 	v1 "github.com/containerd/cgroups/stats/v1"
-
-	"github.com/opencontainers/runtime-spec/specs-go"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // New returns a new control via the cgroup cgroups interface
@@ -227,10 +226,15 @@ func (c *cgroup) Delete() error {
 		return c.err
 	}
 	var errs []string
+	var checkedSubsystems []string
 	for _, s := range c.subsystems {
+		checkedSubsystems = append(checkedSubsystems, string(s.Name()))
 		// kernel prevents cgroups with running process from being removed, check the tree is empty
 		procs, err := c.processes(s.Name(), true, cgroupProcs)
 		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
 			return err
 		}
 		if len(procs) > 0 {

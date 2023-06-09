@@ -26,8 +26,7 @@ import (
 	"sync"
 
 	v1 "github.com/containerd/cgroups/stats/v1"
-
-	"github.com/opencontainers/runtime-spec/specs-go"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // New returns a new control via the cgroup cgroups interface
@@ -227,11 +226,16 @@ func (c *cgroup) Delete() error {
 		return c.err
 	}
 	var errs []string
+	var checkedSubsystems []string
 	for _, s := range c.subsystems {
+		if string(s.Name()) == "net_prio" || string(s.Name()) == "cpuacct" {
+			continue
+		}
+		checkedSubsystems = append(checkedSubsystems, string(s.Name()))
 		// kernel prevents cgroups with running process from being removed, check the tree is empty
 		procs, err := c.processes(s.Name(), true, cgroupProcs)
 		if err != nil {
-			return err
+			return fmt.Errorf("process check error for %v subsystem, err: %v, checkedSubsystems: %v", string(s.Name()), err, checkedSubsystems)
 		}
 		if len(procs) > 0 {
 			errs = append(errs, fmt.Sprintf("%s (contains running processes)", string(s.Name())))
@@ -240,7 +244,7 @@ func (c *cgroup) Delete() error {
 		if d, ok := s.(deleter); ok {
 			sp, err := c.path(s.Name())
 			if err != nil {
-				return err
+				return fmt.Errorf("deleter error for %v subsystem, err: %v", string(s.Name()), err)
 			}
 			if err := d.Delete(sp); err != nil {
 				errs = append(errs, string(s.Name()))
@@ -250,7 +254,7 @@ func (c *cgroup) Delete() error {
 		if p, ok := s.(pather); ok {
 			sp, err := c.path(s.Name())
 			if err != nil {
-				return err
+				return fmt.Errorf("pather error for %v subsystem, err: %v", string(s.Name()), err)
 			}
 			path := p.Path(sp)
 			if err := remove(path); err != nil {

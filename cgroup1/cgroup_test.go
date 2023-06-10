@@ -454,7 +454,7 @@ func TestDelete(t *testing.T) {
 			t.Errorf("failed delete: %v", err)
 		}
 	}()
-	control, err := New(StaticPath("test"), &specs.LinuxResources{}, WithHiearchy(mock.hierarchy))
+	control, err := New(StaticPath("test"), &specs.LinuxResources{})
 	if err != nil {
 		t.Error(err)
 		return
